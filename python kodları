@@ -1,0 +1,998 @@
+
+ui sql.py
+import tkinter as tk
+from tkinter import ttk
+from tkinter import messagebox
+from tkinter.simpledialog import askstring
+from tkinter import simpledialog, Listbox, Button
+from PIL import Image, ImageTk
+from tkinter import scrolledtext
+import psycopg2
+from psycopg2 import sql
+from datetime import date
+from datetime import datetime
+
+
+db_params = {
+    'host': 'localhost',
+    'port': 5432,
+    'database': 'postgres',
+    'user': 'postgres',
+    'password': 'password',
+}
+
+login_screen = None
+welcome_screen = None
+
+def authenticate_user(username, password):
+    try:
+        connection = psycopg2.connect(**db_params)
+        cursor = connection.cursor()
+
+        query = sql.SQL("SELECT id, username, role FROM users WHERE username = %s AND password = %s")
+        cursor.execute(query, (username, password))
+
+        result = cursor.fetchone()
+
+        cursor.close()
+        connection.close()
+
+        return result
+
+    except Exception as e:
+        print(f"Authentication failed: {e}")
+        return None
+
+def show_welcome_screen(user_id, username, role):
+    global welcome_screen
+    if login_screen:
+        login_screen.withdraw()
+
+    welcome_screen = tk.Toplevel(root)
+    welcome_screen.title(f"Welcome, {username}!")
+
+    image_path = 'C:/Users/metto/Documents/yıldız sigorta/anamenu.jpg'
+    try:
+        image = Image.open(image_path)
+        photo = ImageTk.PhotoImage(image)
+        image_label = ttk.Label(welcome_screen, image=photo)
+        image_label.photo = photo
+        image_label.grid(row=0, column=0, padx=10, pady=5, columnspan=3)
+    except Exception as e:
+        print(f"Error loading image: {e}")
+
+    welcome_label = ttk.Label(welcome_screen, text=f"Welcome, {username}!\nYour role: {role}")
+    welcome_label.grid(row=1, column=0, padx=10, pady=5, columnspan=3)
+
+    if role == 'admin':
+        create_user_button = ttk.Button(welcome_screen, text="Create User", command=create_user)
+        create_user_button.grid(row=2, column=0, padx=10, pady=5)
+
+        delete_user_button = ttk.Button(welcome_screen, text="Delete User", command=delete_user)
+        delete_user_button.grid(row=2, column=1, padx=10, pady=5)
+
+        show_all_users_button = ttk.Button(welcome_screen, text="Show All Users", command=show_all_users)
+        show_all_users_button.grid(row=2, column=2, padx=10, pady=5)
+
+        add_customer_button = ttk.Button(welcome_screen, text="Add Customer", command=add_customer)
+        add_customer_button.grid(row=3, column=0, padx=10, pady=5)
+
+        delete_customer_button = ttk.Button(welcome_screen, text="Delete Customer", command=delete_customer)
+        delete_customer_button.grid(row=3, column=1, padx=10, pady=5)
+
+        show_customer_info_button = ttk.Button(welcome_screen, text="Show Customer Info", command=show_customer_info)
+        show_customer_info_button.grid(row=3, column=2, padx=10, pady=5)
+
+        update_customer_button = ttk.Button(welcome_screen, text="Update Customer", command=update_customer)
+        update_customer_button.grid(row=4, column=0, padx=10, pady=5)
+
+        find_policy_button = ttk.Button(welcome_screen, text="Find Policy", command=find_policy)
+        find_policy_button.grid(row=4, column=2, columnspan=3, pady=10)
+
+        reports_button = ttk.Button(welcome_screen, text="Reports", command=show_reports)
+        reports_button.grid(row=7, column=0, columnspan=3, pady=10)
+
+        enter_sales_button = ttk.Button(welcome_screen, text="Enter Sales", command=enter_sales)
+        enter_sales_button.grid(row=4, column=1, padx=10, pady=5)
+
+    else:
+        create_user_button = ttk.Button(welcome_screen, text="Create User", state=tk.DISABLED)
+        create_user_button.grid(row=2, column=0, padx=10, pady=5)
+
+        delete_user_button = ttk.Button(welcome_screen, text="Delete User", command=delete_user, state=tk.DISABLED)
+        delete_user_button.grid(row=2, column=1, padx=10, pady=5)
+
+        show_all_users_button = ttk.Button(welcome_screen, text="Show All Users", command=show_all_users, state=tk.DISABLED)
+        show_all_users_button.grid(row=2, column=2, padx=10, pady=5)
+
+        add_customer_button = ttk.Button(welcome_screen, text="Add Customer", command=add_customer)
+        add_customer_button.grid(row=3, column=0, padx=10, pady=5)
+
+        delete_customer_button = ttk.Button(welcome_screen, text="Delete Customer", command=delete_customer, state=tk.DISABLED)
+        delete_customer_button.grid(row=3, column=1, padx=10, pady=5)
+
+        show_customer_info_button = ttk.Button(welcome_screen, text="Show Customer Info", command=show_customer_info)
+        show_customer_info_button.grid(row=3, column=2, padx=10, pady=5)
+
+        update_customer_button = ttk.Button(welcome_screen, text="Update Customer", command=update_customer)
+        update_customer_button.grid(row=4, column=0, padx=10, pady=5)
+
+        find_policy_button = ttk.Button(welcome_screen, text="Find Policy", command=find_policy)
+        find_policy_button.grid(row=4, column=2, columnspan=3, pady=10)
+
+        reports_button = ttk.Button(welcome_screen, text="Reports", command=show_reports, state=tk.DISABLED)
+        reports_button.grid(row=7, column=0, columnspan=3, pady=10)
+
+        enter_sales_button = ttk.Button(welcome_screen, text="Enter Sales", command=enter_sales)
+        enter_sales_button.grid(row=4, column=1, padx=10, pady=5)
+
+def create_user():
+    user_creation_screen = tk.Toplevel(welcome_screen)
+    user_creation_screen.title("Create User")
+
+    username_label = ttk.Label(user_creation_screen, text="Username:")
+    username_label.grid(row=0, column=0, padx=10, pady=5, sticky="E")
+    username_entry = ttk.Entry(user_creation_screen)
+    username_entry.grid(row=0, column=1, padx=10, pady=5)
+
+    password_label = ttk.Label(user_creation_screen, text="Password:")
+    password_label.grid(row=1, column=0, padx=10, pady=5, sticky="E")
+    password_entry = ttk.Entry(user_creation_screen, show="*")
+    password_entry.grid(row=1, column=1, padx=10, pady=5)
+
+    role_label = ttk.Label(user_creation_screen, text="Role:")
+    role_label.grid(row=2, column=0, padx=10, pady=5, sticky="E")
+    role_var = tk.StringVar(user_creation_screen)
+    role_var.set("user")
+    role_dropdown = ttk.Combobox(user_creation_screen, textvariable=role_var, values=["user", "admin"])
+    role_dropdown.grid(row=2, column=1, padx=10, pady=5)
+
+    submit_button = ttk.Button(user_creation_screen, text="Submit", command=lambda: submit_user(username_entry.get(), password_entry.get(), role_var.get()))
+    submit_button.grid(row=3, column=0, columnspan=2, pady=10)
+
+
+def delete_user():
+    try:
+        user_identifier = askstring("Delete User", "Enter the ID of the user to delete:")
+
+        if user_identifier is not None:
+            connection = psycopg2.connect(**db_params)
+            cursor = connection.cursor()
+
+            query_check_user = sql.SQL("SELECT id FROM users WHERE id = %s OR username = %s")
+            cursor.execute(query_check_user, (user_identifier, user_identifier))
+            user_exists = cursor.fetchone()
+
+            if user_exists:
+                confirmation = messagebox.askyesno("Confirm Deletion", f"Are you sure you want to delete the user with ID or username: {user_identifier}?")
+
+                if confirmation:
+                    query_delete_user = sql.SQL("DELETE FROM users WHERE id = %s OR username = %s")
+                    cursor.execute(query_delete_user, (user_identifier, user_identifier))
+
+                    connection.commit()
+                    cursor.close()
+                    connection.close()
+
+                    messagebox.showinfo("User Deleted", "User deleted successfully!")
+            else:
+                messagebox.showerror("User Not Found", f"User with ID or username: {user_identifier} not found.")
+
+    except Exception as e:
+        print(f"Error deleting user: {e}")
+        messagebox.showerror("Error", "Error deleting user. Please try again.")
+
+
+def show_all_users():
+    try:
+        connection = psycopg2.connect(**db_params)
+        cursor = connection.cursor()
+
+        query = sql.SQL("SELECT id, username, role FROM users")
+        cursor.execute(query)
+
+        users = cursor.fetchall()
+
+        cursor.close()
+        connection.close()
+
+        user_list = "\n".join([f"ID: {user[0]}, Username: {user[1]}, Role: {user[2]}" for user in users])
+        messagebox.showinfo("All Users", f"All Users:\n{user_list}")
+
+    except Exception as e:
+        print(f"Error fetching users: {e}")
+        messagebox.showerror("Error", "Error fetching users. Please try again.")
+
+def submit_user(username, password, role):
+    try:
+        connection = psycopg2.connect(**db_params)
+        cursor = connection.cursor()
+
+        query = sql.SQL("INSERT INTO users (username, password, role) VALUES (%s, %s, %s)")
+        cursor.execute(query, (username, password, role))
+
+        connection.commit()
+        cursor.close()
+        connection.close()
+
+        messagebox.showinfo("User Created", "User created successfully!")
+
+    except Exception as e:
+        print(f"Error creating user: {e}")
+        messagebox.showerror("Error", "Error creating user. Please try a different username.")
+
+
+
+def login_clicked():
+    global login_screen
+    username = username_entry.get()
+    password = password_entry.get()
+
+    user_data = authenticate_user(username, password)
+
+    if user_data:
+        user_id, username, role = user_data
+        show_welcome_screen(user_id, username, role)
+    else:
+        messagebox.showerror("Login Failed", "Invalid credentials. Please try again.")
+
+
+
+def add_customer():
+    try:
+        add_customer_screen = tk.Toplevel(welcome_screen)
+        add_customer_screen.title("Add Customer")
+
+        global customer_name_entry, customer_surname_entry, customer_age_entry, customer_location_entry, customer_state_entry, customer_postal_code_entry, customer_email_entry
+
+        customer_name_label = ttk.Label(add_customer_screen, text="Name:")
+        customer_name_label.grid(row=0, column=0, padx=10, pady=5, sticky="E")
+        customer_name_entry = ttk.Entry(add_customer_screen)
+        customer_name_entry.grid(row=0, column=1, padx=10, pady=5)
+
+        customer_surname_label = ttk.Label(add_customer_screen, text="Surname:")
+        customer_surname_label.grid(row=1, column=0, padx=10, pady=5, sticky="E")
+        customer_surname_entry = ttk.Entry(add_customer_screen)
+        customer_surname_entry.grid(row=1, column=1, padx=10, pady=5)
+
+        customer_age_label = ttk.Label(add_customer_screen, text="Age:")
+        customer_age_label.grid(row=2, column=0, padx=10, pady=5, sticky="E")
+        customer_age_entry = ttk.Entry(add_customer_screen)
+        customer_age_entry.grid(row=2, column=1, padx=10, pady=5)
+
+        customer_location_label = ttk.Label(add_customer_screen, text="Location:")
+        customer_location_label.grid(row=3, column=0, padx=10, pady=5, sticky="E")
+        customer_location_entry = ttk.Entry(add_customer_screen)
+        customer_location_entry.grid(row=3, column=1, padx=10, pady=5)
+
+        customer_state_label = ttk.Label(add_customer_screen, text="State:")
+        customer_state_label.grid(row=4, column=0, padx=10, pady=5, sticky="E")
+        customer_state_entry = ttk.Entry(add_customer_screen)
+        customer_state_entry.grid(row=4, column=1, padx=10, pady=5)
+
+        customer_postal_code_label = ttk.Label(add_customer_screen, text="Postal Code:")
+        customer_postal_code_label.grid(row=5, column=0, padx=10, pady=5, sticky="E")
+        customer_postal_code_entry = ttk.Entry(add_customer_screen)
+        customer_postal_code_entry.grid(row=5, column=1, padx=10, pady=5)
+
+        customer_email_label = ttk.Label(add_customer_screen, text="Email:")
+        customer_email_label.grid(row=6, column=0, padx=10, pady=5, sticky="E")
+        customer_email_entry = ttk.Entry(add_customer_screen)
+        customer_email_entry.grid(row=6, column=1, padx=10, pady=5)
+
+        def submit_customer():
+            try:
+                name = customer_name_entry.get()
+                surname = customer_surname_entry.get()
+                age = customer_age_entry.get()
+                location = customer_location_entry.get()
+                state = customer_state_entry.get()
+                postal_code = customer_postal_code_entry.get()
+                email = customer_email_entry.get()
+
+                if name and surname and age:
+                    connection = psycopg2.connect(**db_params)
+                    cursor = connection.cursor()
+
+                    query_max_id = sql.SQL("SELECT MAX(customer_id) FROM customer")
+                    cursor.execute(query_max_id)
+                    max_id = cursor.fetchone()[0]
+
+                    next_customer_id = max_id + 1 if max_id is not None else 1
+
+                    query_insert_customer = sql.SQL("INSERT INTO customer (customer_id, name, surname, age, location, state, postal_code, email) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)")
+                    cursor.execute(query_insert_customer, (next_customer_id, name, surname, age, location, state, postal_code, email))
+
+                    connection.commit()
+                    cursor.close()
+                    connection.close()
+
+                    messagebox.showinfo("Customer Added", f"Customer added successfully!\nCustomer ID: {next_customer_id}")
+                    add_customer_screen.destroy()
+
+                else:
+                    messagebox.showerror("Incomplete Information", "Name, surname, and age are required fields. Please fill them in.")
+
+            except Exception as e:
+                print(f"Error adding customer: {e}")
+                messagebox.showerror("Error", "Error adding customer. Please try again.")
+
+        submit_button = ttk.Button(add_customer_screen, text="Submit", command=submit_customer)
+        submit_button.grid(row=7, column=0, columnspan=2, pady=10)
+
+    except Exception as e:
+        print(f"Error opening add customer screen: {e}")
+        messagebox.showerror("Error", "Error opening add customer screen. Please try again.")
+
+
+def show_customer_info():
+    try:
+        customer_info_screen = tk.Toplevel(welcome_screen)
+        customer_info_screen.title("Customer Information")
+
+        customer_info_text = scrolledtext.ScrolledText(customer_info_screen, wrap=tk.WORD, width=100, height=40)
+        customer_info_text.grid(row=0, column=0, padx=10, pady=10, columnspan=3)
+
+        def update_customer_info():
+            try:
+                connection = psycopg2.connect(**db_params)
+                cursor = connection.cursor()
+
+                query = sql.SQL("SELECT customer_id, name, surname, age, location, state, postal_code, email FROM customer")
+                cursor.execute(query)
+
+                customers = cursor.fetchall()
+
+                cursor.close()
+                connection.close()
+
+                customer_info_text.delete(1.0, tk.END)
+                for customer in customers:
+                    customer_info_text.insert(tk.END, f"{'='*30}\n")
+                    customer_info_text.insert(tk.END, f"ID: {customer[0]}\n")
+                    customer_info_text.insert(tk.END, f"Name: {customer[1]}\n")
+                    customer_info_text.insert(tk.END, f"Surname: {customer[2]}\n")
+                    customer_info_text.insert(tk.END, f"Age: {customer[3]}\n")
+                    customer_info_text.insert(tk.END, f"Location: {customer[4]}\n")
+                    customer_info_text.insert(tk.END, f"State: {customer[5]}\n")
+                    customer_info_text.insert(tk.END, f"Postal Code: {customer[6]}\n")
+                    customer_info_text.insert(tk.END, f"Email: {customer[7]}\n\n")
+
+            except Exception as e:
+                print(f"Error fetching customer information: {e}")
+                messagebox.showerror("Error", "Error fetching customer information. Please try again.")
+
+        def show_customer_details(customer_id):
+            try:
+                connection = psycopg2.connect(**db_params)
+                cursor = connection.cursor()
+
+                query = sql.SQL("SELECT * FROM customer WHERE customer_id = %s")
+                cursor.execute(query, (customer_id,))
+                customer_details = cursor.fetchone()
+
+                cursor.close()
+                connection.close()
+
+                customer_details_screen = tk.Toplevel(customer_info_screen)
+                customer_details_screen.title(f"Customer Details - ID: {customer_id}")
+
+                details_text = scrolledtext.ScrolledText(customer_details_screen, wrap=tk.WORD, width=80, height=20)
+                details_text.grid(row=0, column=0, padx=10, pady=10, columnspan=3)
+
+                details_text.insert(tk.END, f"{'='*30}\n")
+                for index, value in enumerate(customer_details):
+                    details_text.insert(tk.END, f"{cursor.description[index].name}: {value}\n")
+
+            except Exception as e:
+                print(f"Error fetching customer details: {e}")
+                messagebox.showerror("Error", "Error fetching customer details. Please try again.")
+
+        def on_customer_click(event):
+            line_number = int(event.widget.index(tk.CURRENT).split('.')[0])
+
+            selected_customer_info = customer_info_text.get(f"{line_number}.0", f"{line_number}.end").split(':')
+            if len(selected_customer_info) >= 2:
+                customer_id = int(selected_customer_info[1])
+                show_customer_details(customer_id)
+
+        customer_info_text.bind("<ButtonRelease-1>", on_customer_click)
+
+        filter_frame = ttk.Frame(customer_info_screen)
+        filter_frame.grid(row=1, column=0, padx=10, pady=5, sticky="W")
+
+        filter_label = ttk.Label(filter_frame, text="Name or Surname:")
+        filter_label.grid(row=0, column=0, padx=5, pady=5, sticky="W")
+
+        filter_entry = ttk.Entry(filter_frame)
+        filter_entry.grid(row=0, column=1, padx=5, pady=5, sticky="W")
+
+        def filter_customer_info():
+            try:
+                connection = psycopg2.connect(**db_params)
+                cursor = connection.cursor()
+
+                filter_term = filter_entry.get()
+
+                query_filter = sql.SQL("SELECT customer_id, name, surname, age, location, state, postal_code, email FROM customer "
+                                       "WHERE LOWER(name) LIKE LOWER(%s) OR "
+                                       "LOWER(surname) LIKE LOWER(%s)")
+                cursor.execute(query_filter, (f"%{filter_term}%", f"%{filter_term}%"))
+
+                filtered_customers = cursor.fetchall()
+
+                cursor.close()
+                connection.close()
+
+                customer_info_text.delete(1.0, tk.END)
+                for customer in filtered_customers:
+                    customer_info_text.insert(tk.END, f"{'='*30}\n")
+                    customer_info_text.insert(tk.END, f"ID: {customer[0]}\n")
+                    customer_info_text.insert(tk.END, f"Name: {customer[1]}\n")
+                    customer_info_text.insert(tk.END, f"Surname: {customer[2]}\n")
+                    customer_info_text.insert(tk.END, f"Age: {customer[3]}\n")
+                    customer_info_text.insert(tk.END, f"Location: {customer[4]}\n")
+                    customer_info_text.insert(tk.END, f"State: {customer[5]}\n")
+                    customer_info_text.insert(tk.END, f"Postal Code: {customer[6]}\n")
+                    customer_info_text.insert(tk.END, f"Email: {customer[7]}\n\n")
+
+            except Exception as e:
+                print(f"Error filtering customer information: {e}")
+                messagebox.showerror("Error", "Error filtering customer information. Please try again.")
+
+
+        filter_button = ttk.Button(filter_frame, text="Apply Filter", command=filter_customer_info)
+        filter_button.grid(row=0, column=2, padx=5, pady=5, sticky="W")
+
+        update_button = ttk.Button(customer_info_screen, text="Update", command=update_customer_info)
+        update_button.grid(row=1, column=1, padx=5, pady=5)
+
+        update_customer_info()
+
+    except Exception as e:
+        print(f"Error opening customer information screen: {e}")
+        messagebox.showerror("Error", "Error opening customer information screen. Please try again.")
+
+def delete_customer():
+    try:
+        customer_id = askstring("Delete Customer", "Enter the ID of the customer to delete:")
+
+        if customer_id is not None:
+            connection = psycopg2.connect(**db_params)
+            cursor = connection.cursor()
+
+            query_check_customer = sql.SQL("SELECT customer_id FROM customer WHERE customer_id = %s")
+            cursor.execute(query_check_customer, (customer_id,))
+            customer_exists = cursor.fetchone()
+
+            if customer_exists:
+                confirmation = messagebox.askyesno("Confirm Deletion", f"Are you sure you want to delete customer with ID: {customer_id}?")
+
+                if confirmation:
+                    query_delete_customer = sql.SQL("DELETE FROM customer WHERE customer_id = %s")
+                    cursor.execute(query_delete_customer, (customer_id,))
+
+                    connection.commit()
+                    cursor.close()
+                    connection.close()
+
+                    messagebox.showinfo("Customer Deleted", f"Customer with ID {customer_id} deleted successfully!")
+            else:
+                messagebox.showerror("Customer Not Found", f"Customer with ID {customer_id} not found.")
+
+    except Exception as e:
+        print(f"Error deleting customer: {e}")
+        messagebox.showerror("Error", "Error deleting customer. Please try again.")
+
+def update_customer():
+    try:
+        customer_id = askstring("Update Customer", "Enter the ID of the customer to update:")
+
+        if customer_id is not None:
+            connection = psycopg2.connect(**db_params)
+            cursor = connection.cursor()
+
+            query_check_customer = sql.SQL("SELECT customer_id FROM customer WHERE customer_id = %s")
+            cursor.execute(query_check_customer, (customer_id,))
+            customer_exists = cursor.fetchone()
+
+            cursor.close()
+            connection.close()
+
+            if customer_exists:
+                update_customer_info_popup(customer_id)
+            else:
+                messagebox.showerror("Customer Not Found", f"Customer with ID {customer_id} not found.")
+
+    except Exception as e:
+        print(f"Error updating customer: {e}")
+        messagebox.showerror("Error", "Error updating customer. Please try again.")
+
+def update_customer_info_popup(customer_id):
+    try:
+        update_customer_screen = tk.Toplevel(welcome_screen)
+        update_customer_screen.title(f"Update Customer - ID: {customer_id}")
+
+
+        connection = psycopg2.connect(**db_params)
+        cursor = connection.cursor()
+
+        query_get_customer = sql.SQL("SELECT name, surname, age, location FROM customer WHERE customer_id = %s")
+        cursor.execute(query_get_customer, (customer_id,))
+        customer_info = cursor.fetchone()
+
+        cursor.close()
+        connection.close()
+
+        if customer_info:
+            updated_name_label = ttk.Label(update_customer_screen, text="Name:")
+            updated_name_label.grid(row=0, column=0, padx=10, pady=5, sticky="E")
+            updated_name_entry = ttk.Entry(update_customer_screen)
+            updated_name_entry.grid(row=0, column=1, padx=10, pady=5)
+            updated_name_entry.insert(0, customer_info[0])
+
+            updated_surname_label = ttk.Label(update_customer_screen, text="Surname:")
+            updated_surname_label.grid(row=1, column=0, padx=10, pady=5, sticky="E")
+            updated_surname_entry = ttk.Entry(update_customer_screen)
+            updated_surname_entry.grid(row=1, column=1, padx=10, pady=5)
+            updated_surname_entry.insert(0, customer_info[1])
+
+            updated_age_label = ttk.Label(update_customer_screen, text="Age:")
+            updated_age_label.grid(row=2, column=0, padx=10, pady=5, sticky="E")
+            updated_age_entry = ttk.Entry(update_customer_screen)
+            updated_age_entry.grid(row=2, column=1, padx=10, pady=5)
+            updated_age_entry.insert(0, customer_info[2])
+
+            updated_location_label = ttk.Label(update_customer_screen, text="Location:")
+            updated_location_label.grid(row=3, column=0, padx=10, pady=5, sticky="E")
+            updated_location_entry = ttk.Entry(update_customer_screen)
+            updated_location_entry.grid(row=3, column=1, padx=10, pady=5)
+            updated_location_entry.insert(0, customer_info[3])
+
+
+            def submit_updated_customer():
+                try:
+
+                    updated_name = updated_name_entry.get()
+                    updated_surname = updated_surname_entry.get()
+                    updated_age = updated_age_entry.get()
+                    updated_location = updated_location_entry.get()
+
+                    if updated_name and updated_surname and updated_age:
+
+                        connection = psycopg2.connect(**db_params)
+                        cursor = connection.cursor()
+
+                        query_update_customer = sql.SQL("UPDATE customer SET name = %s, surname = %s, age = %s, "
+                                                        "location = %s "
+                                                        "WHERE customer_id = %s")
+                        cursor.execute(query_update_customer, (updated_name, updated_surname, updated_age,
+                                                               updated_location, customer_id))
+
+                        connection.commit()
+                        cursor.close()
+                        connection.close()
+
+                        messagebox.showinfo("Customer Updated", f"Customer with ID {customer_id} updated successfully!")
+                        update_customer_screen.destroy()
+
+                    else:
+                        messagebox.showerror("Incomplete Information", "Name, surname, and age are required fields. Please fill them in.")
+
+                except Exception as e:
+                    print(f"Error updating customer: {e}")
+                    messagebox.showerror("Error", "Error updating customer. Please try again.")
+
+
+            update_button = ttk.Button(update_customer_screen, text="Update", command=submit_updated_customer)
+            update_button.grid(row=7, column=0, columnspan=2, pady=10)
+
+        else:
+            messagebox.showerror("Customer Not Found", f"Customer with ID {customer_id} not found.")
+
+    except Exception as e:
+        print(f"Error opening update customer screen: {e}")
+        messagebox.showerror("Error", "Error opening update customer screen. Please try again.")
+
+def find_policy():
+    try:
+        policy_id = askstring("Find Policy", "Enter the ID of the policy to find:")
+
+        if policy_id is not None:
+            connection = psycopg2.connect(**db_params)
+            cursor = connection.cursor()
+
+            query_find_policy = sql.SQL("SELECT * FROM ins_policy WHERE policy_id = %s")
+            cursor.execute(query_find_policy, (policy_id,))
+            policy_info = cursor.fetchone()
+
+            cursor.close()
+            connection.close()
+
+            if policy_info:
+                show_policy_info_popup(policy_info)
+            else:
+                messagebox.showerror("Policy Not Found", f"Policy with ID {policy_id} not found.")
+
+    except Exception as e:
+        print(f"Error finding policy: {e}")
+        messagebox.showerror("Error", "Error finding policy. Please try again.")
+
+def show_policy_info_popup(policy_info):
+    try:
+        policy_info_screen = tk.Toplevel(welcome_screen)
+        policy_info_screen.title(f"Policy Information - ID: {policy_info[0]}")
+
+        policy_id_label = ttk.Label(policy_info_screen, text="Policy ID:")
+        policy_id_label.grid(row=0, column=0, padx=10, pady=5, sticky="E")
+        policy_id_value = ttk.Label(policy_info_screen, text=policy_info[0])
+        policy_id_value.grid(row=0, column=1, padx=10, pady=5)
+
+        policy_id_label = ttk.Label(policy_info_screen, text="Policy Type:")
+        policy_id_label.grid(row=1, column=0, padx=10, pady=5, sticky="E")
+        policy_id_value = ttk.Label(policy_info_screen, text=policy_info[1])
+        policy_id_value.grid(row=1, column=1, padx=10, pady=5)
+
+        policy_id_label = ttk.Label(policy_info_screen, text="Insurance Commusion:" " (TRY)")
+        policy_id_label.grid(row=2, column=0, padx=10, pady=5, sticky="E")
+        policy_id_value = ttk.Label(policy_info_screen, text=policy_info[2])
+        policy_id_value.grid(row=2, column=1, padx=10, pady=5)
+
+        policy_id_label = ttk.Label(policy_info_screen, text="Insured Risk: " " (TRY)")
+        policy_id_label.grid(row=3, column=0, padx=10, pady=5, sticky="E")
+        policy_id_value = ttk.Label(policy_info_screen, text=policy_info[3])
+        policy_id_value.grid(row=3, column=1, padx=10, pady=5)
+
+        policy_id_label = ttk.Label(policy_info_screen, text="Start Date:")
+        policy_id_label.grid(row=4, column=0, padx=10, pady=5, sticky="E")
+        policy_id_value = ttk.Label(policy_info_screen, text=policy_info[4])
+        policy_id_value.grid(row=4, column=1, padx=10, pady=5)
+
+        policy_id_label = ttk.Label(policy_info_screen, text="Insurance Company ID:")
+        policy_id_label.grid(row=5, column=0, padx=10, pady=5, sticky="E")
+        policy_id_value = ttk.Label(policy_info_screen, text=policy_info[5])
+        policy_id_value.grid(row=5, column=1, padx=10, pady=5)
+
+        policy_id_label = ttk.Label(policy_info_screen, text="Insurance Premium:" " (TRY)")
+        policy_id_label.grid(row=6, column=0, padx=10, pady=5, sticky="E")
+        policy_id_value = ttk.Label(policy_info_screen, text=policy_info[6])
+        policy_id_value.grid(row=6, column=1, padx=10, pady=5)
+
+        policy_id_label = ttk.Label(policy_info_screen, text="Earthquake Coverage:")
+        policy_id_label.grid(row=7, column=0, padx=10, pady=5, sticky="E")
+        policy_id_value = ttk.Label(policy_info_screen, text=policy_info[7])
+        policy_id_value.grid(row=7, column=1, padx=10, pady=5)
+
+        policy_id_label = ttk.Label(policy_info_screen, text="Flood Coverage:")
+        policy_id_label.grid(row=8, column=0, padx=10, pady=5, sticky="E")
+        policy_id_value = ttk.Label(policy_info_screen, text=policy_info[8])
+        policy_id_value.grid(row=8, column=1, padx=10, pady=5)
+
+        policy_id_label = ttk.Label(policy_info_screen, text="Customer ID Number:")
+        policy_id_label.grid(row=9, column=0, padx=10, pady=5, sticky="E")
+        policy_id_value = ttk.Label(policy_info_screen, text=policy_info[9])
+        policy_id_value.grid(row=9, column=1, padx=10, pady=5)
+
+
+    except Exception as e:
+        print(f"Error displaying policy information: {e}")
+        messagebox.showerror("Error", "Error displaying policy information. Please try again.")
+
+def show_reports():
+    try:
+        reports_screen = tk.Toplevel(welcome_screen)
+        reports_screen.title("Reports")
+
+        instruction_label = ttk.Label(reports_screen, text="Select a report to view:")
+        instruction_label.grid(row=0, column=0, padx=10, pady=5)
+
+
+        report_options = ["customers_paid_premiums", "customer_policies_details", "branch_performance"]
+        selected_report = tk.StringVar()
+        report_combobox = ttk.Combobox(reports_screen, textvariable=selected_report, values=report_options)
+        report_combobox.grid(row=1, column=0, padx=10, pady=5)
+
+
+        def show_selected_report():
+            try:
+
+                selected_view = selected_report.get()
+
+                connection = psycopg2.connect(**db_params)
+                cursor = connection.cursor()
+
+                query = sql.SQL("SELECT * FROM {}").format(sql.Identifier(selected_view))
+                cursor.execute(query)
+
+                result = cursor.fetchall()
+
+                cursor.close()
+                connection.close()
+
+                report_display_screen = tk.Toplevel(welcome_screen)
+                report_display_screen.title(f"Report - {selected_view}")
+
+
+                find_entry_label = ttk.Label(report_display_screen, text="Find Customer:")
+                find_entry_label.grid(row=0, column=0, padx=10, pady=5, sticky="E")
+                find_entry = ttk.Entry(report_display_screen)
+                find_entry.grid(row=0, column=1, padx=10, pady=5)
+
+                find_button = ttk.Button(report_display_screen, text="Find", command=lambda: filter_report(result, find_entry.get(), tree))
+                find_button.grid(row=0, column=2, padx=10, pady=5)
+
+
+                tree = ttk.Treeview(report_display_screen, columns=list(range(len(result[0]))), show="headings")
+
+                for col_index, col_name in enumerate(cursor.description):
+                    tree.heading(col_index, text=col_name[0])
+
+                for row in result:
+                    tree.insert("", "end", values=row)
+
+                tree.grid(row=1, column=0, columnspan=3, pady=10, padx=10, sticky="nsew")
+                report_display_screen.grid_rowconfigure(1, weight=1)
+                report_display_screen.grid_columnconfigure(0, weight=1)
+
+            except Exception as e:
+                print(f"Error fetching report: {e}")
+                messagebox.showerror("Error", "Error fetching report. Please try again.")
+
+
+        def filter_report(report_data, filter_text, treeview):
+            filtered_data = [row for row in report_data if filter_text.lower() in " ".join(map(str, row)).lower()]
+
+
+            for item in treeview.get_children():
+                treeview.delete(item)
+
+
+            for row in filtered_data:
+                treeview.insert("", "end", values=row)
+
+
+
+        show_report_button = ttk.Button(reports_screen, text="Show Report", command=show_selected_report)
+        show_report_button.grid(row=2, column=0, padx=10, pady=5)
+
+    except Exception as e:
+        print(f"Error opening reports screen: {e}")
+        messagebox.showerror("Error", "Error opening reports screen. Please try again.")
+
+connection = psycopg2.connect(**db_params)
+cursor = connection.cursor()
+
+
+from datetime import date
+from tkinter import simpledialog
+
+
+def get_next_policy_id(cursor):
+    query_get_next_policy_id = "SELECT nextval('ins_policy_policy_id_seq')"
+    cursor.execute(query_get_next_policy_id)
+    return cursor.fetchone()[0]
+
+from tkinter import ttk
+
+from tkinter import ttk
+
+import tkinter as tk
+from tkinter import ttk, simpledialog, messagebox
+from datetime import date
+import psycopg2
+
+
+
+def enter_sales():
+    try:
+
+        connection = psycopg2.connect(**db_params)
+        cursor = connection.cursor()
+
+
+        query_get_next_sales_id = "SELECT nextval('sales_sales_id_seq')"
+        cursor.execute(query_get_next_sales_id)
+        next_sales_id = cursor.fetchone()[0]
+
+
+        while check_sales_id_exists(cursor, next_sales_id):
+            next_sales_id += 1
+
+
+        enter_sales_screen = tk.Toplevel(welcome_screen)
+        enter_sales_screen.title("Enter Sales")
+
+
+        ttk.Label(enter_sales_screen, text="Customer ID:").grid(row=0, column=0, padx=10, pady=5, sticky="E")
+        customer_id_entry = ttk.Entry(enter_sales_screen)
+        customer_id_entry.grid(row=0, column=1, padx=10, pady=5)
+
+        ttk.Label(enter_sales_screen, text="Branch ID:").grid(row=1, column=0, padx=10, pady=5, sticky="E")
+        branch_id_entry = ttk.Entry(enter_sales_screen)
+        branch_id_entry.grid(row=1, column=1, padx=10, pady=5)
+
+        ttk.Label(enter_sales_screen, text="Insurance Company ID:").grid(row=2, column=0, padx=10, pady=5, sticky="E")
+        ins_company_id_entry = ttk.Entry(enter_sales_screen)
+        ins_company_id_entry.grid(row=2, column=1, padx=10, pady=5)
+
+        ttk.Label(enter_sales_screen, text="Sales Date (YYYY-MM-DD):").grid(row=9, column=0, padx=10, pady=5, sticky="E")
+        sales_date_entry = ttk.Entry(enter_sales_screen)
+        sales_date_entry.grid(row=9, column=1, padx=10, pady=5)
+
+        policy_types = [
+            "health", "electronic device", "corporate", "common ground",
+            "travel", "corporate", "vehicle", "house", "personal accident"
+        ]
+        ttk.Label(enter_sales_screen, text="Choose Policy Type:").grid(row=3, column=0, padx=10, pady=5, sticky="E")
+        policy_type_var = tk.StringVar(value=policy_types[0])
+        policy_type_combobox = ttk.Combobox(enter_sales_screen, textvariable=policy_type_var, values=policy_types)
+        policy_type_combobox.grid(row=3, column=1, padx=10, pady=5)
+
+
+        ttk.Label(enter_sales_screen, text="Insurance Commission:").grid(row=4, column=0, padx=10, pady=5, sticky="E")
+        insurance_commission_entry = ttk.Entry(enter_sales_screen)
+        insurance_commission_entry.grid(row=4, column=1, padx=10, pady=5)
+
+        ttk.Label(enter_sales_screen, text="Insurance Risk:").grid(row=5, column=0, padx=10, pady=5, sticky="E")
+        insurance_risk_entry = ttk.Entry(enter_sales_screen)
+        insurance_risk_entry.grid(row=5, column=1, padx=10, pady=5)
+
+        ttk.Label(enter_sales_screen, text="Insurance Premium:").grid(row=6, column=0, padx=10, pady=5, sticky="E")
+        insurance_premium_entry = ttk.Entry(enter_sales_screen)
+        insurance_premium_entry.grid(row=6, column=1, padx=10, pady=5)
+
+        ttk.Label(enter_sales_screen, text="Earthquake Coverage (true or false):").grid(row=7, column=0, padx=10, pady=5, sticky="E")
+        earthquake_coverage_entry = ttk.Entry(enter_sales_screen)
+        earthquake_coverage_entry.grid(row=7, column=1, padx=10, pady=5)
+
+        ttk.Label(enter_sales_screen, text="Flood Coverage (true or false):").grid(row=8, column=0, padx=10, pady=5, sticky="E")
+        flood_coverage_entry = ttk.Entry(enter_sales_screen)
+        flood_coverage_entry.grid(row=8, column=1, padx=10, pady=5)
+
+
+        submit_button = ttk.Button(enter_sales_screen, text="Submit", command=lambda: submit_sales_info(
+            next_sales_id, customer_id_entry.get(), branch_id_entry.get(), ins_company_id_entry.get(),
+            policy_type_var.get(), insurance_commission_entry.get(), insurance_risk_entry.get(),
+            insurance_premium_entry.get(), earthquake_coverage_entry.get(), flood_coverage_entry.get(),
+            sales_date_entry.get(), cursor
+        ))
+        submit_button.grid(row=11, column=1, padx=10, pady=10)
+        submit_button.grid(row=11, column=1, padx=10, pady=10)
+
+    except Exception as e:
+        print(f"Error entering sales: {e}")
+
+def submit_sales_info(sales_id, customer_id, branch_id, ins_company_id, policy_type,
+                      insurance_commission, insurance_risk, insurance_premium,
+                      earthquake_coverage, flood_coverage, sales_date, cursor):
+    try:
+
+        connection = psycopg2.connect(**db_params)
+        cursor = connection.cursor()
+
+
+        while check_sales_id_exists(cursor, sales_id):
+            sales_id += 1
+
+
+        if not check_customer_exist(cursor, customer_id):
+            messagebox.showerror("Error", f"Customer with ID {customer_id} does not exist.")
+            return
+
+
+        if not check_branch_exist(cursor, branch_id):
+            messagebox.showerror("Error", f"Branch with ID {branch_id} does not exist.")
+            return
+
+
+        next_policy_id = get_next_sequence_value(cursor, 'ins_policy_policy_id_seq')
+
+        insert_into_ins_policy(cursor, next_policy_id, policy_type, ins_company_id, customer_id,
+                               insurance_commission, insurance_risk, sales_date,
+                               insurance_premium, earthquake_coverage, flood_coverage)
+
+
+        query_insert_sales = """ 
+        INSERT INTO sales (sales_id, customer_id, branch_id, salesdate, ins_company_id) 
+        VALUES (%s, %s, %s, %s, %s) 
+        """
+        cursor.execute(query_insert_sales, (sales_id, customer_id, branch_id, sales_date, ins_company_id))
+
+        connection.commit()
+
+
+        print(f"Newly inserted sales_id: {sales_id}, sales_date: {sales_date}")
+
+
+        cursor.close()
+        connection.close()
+    except Exception as e:
+        print(f"Error entering sales: {e}")
+
+def get_next_sequence_value(cursor, sequence_name):
+    try:
+        query_get_next_value = f"SELECT nextval('{sequence_name}')"
+        cursor.execute(query_get_next_value)
+        return cursor.fetchone()[0]
+    except Exception as e:
+        print(f"Error getting next sequence value: {e}")
+
+class PolicyTypeDialog(simpledialog.Dialog):
+    def body(self, master):
+        self.policy_types = [
+            "health", "electronic device", "corporate", "common ground",
+            "travel", "corporate", "vehicle", "house", "personal accident"
+        ]
+
+        self.listbox = Listbox(master, selectmode="single", height=len(self.policy_types))
+        for policy_type in self.policy_types:
+            self.listbox.insert("end", policy_type)
+        self.listbox.pack()
+
+        return self.listbox
+
+    def apply(self):
+        selection = self.listbox.curselection()
+        if selection:
+            self.result = self.policy_types[selection[0]]
+
+def choose_policy_type():
+    dialog = PolicyTypeDialog(welcome_screen, "Choose Policy Type")
+    selected_policy_type = dialog.result
+    return selected_policy_type
+
+def insert_into_ins_policy(cursor, policy_id, policy_type, ins_company_id, customer_id,
+                           ins_commusion, ins_risk, start_date,
+                           ins_premium, earthquake_cov, flood_cov):
+
+    query_insert_ins_policy = """ 
+    INSERT INTO ins_policy (policy_id, policy_type, ins_commusion, ins_risk, start_date, ins_company_id, ins_premium, earthquake_cov, flood_cov, customer_id) 
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) 
+    """
+    cursor.execute(query_insert_ins_policy, (policy_id, policy_type, ins_commusion, ins_risk, start_date, ins_company_id, ins_premium, earthquake_cov, flood_cov, customer_id))
+
+def check_sales_id_exists(cursor, sales_id):
+    query_check_sales_id = "SELECT COUNT(*) FROM sales WHERE sales_id = %s"
+    cursor.execute(query_check_sales_id, (sales_id,))
+    return cursor.fetchone()[0] > 0
+
+
+def check_customer_exist(cursor, customer_id):
+    query_check_customer = "SELECT COUNT(*) FROM customer WHERE customer_id = %s"
+    cursor.execute(query_check_customer, (customer_id,))
+    return cursor.fetchone()[0] > 0
+
+
+def check_branch_exist(cursor, branch_id):
+    query_check_branch = "SELECT COUNT(*) FROM branch WHERE branch_id = %s"
+    cursor.execute(query_check_branch, (branch_id,))
+    return cursor.fetchone()[0] > 0
+
+def check_policy_id_exists(cursor, policy_id):
+    query_check_policy_id = "SELECT COUNT(*) FROM ins_policy WHERE policy_id = %s"
+    cursor.execute(query_check_policy_id, (policy_id,))
+    return cursor.fetchone()[0] > 0
+
+
+root = tk.Tk()
+root.title("Login Screen")
+
+
+username_label = ttk.Label(root, text="Username:")
+username_label.grid(row=0, column=0, padx=10, pady=5, sticky="E")
+username_entry = ttk.Entry(root)
+username_entry.grid(row=0, column=1, padx=10, pady=5)
+
+password_label = ttk.Label(root, text="Password:")
+password_label.grid(row=1, column=0, padx=10, pady=5, sticky="E")
+password_entry = ttk.Entry(root, show="*")
+password_entry.grid(row=1, column=1, padx=10, pady=5)
+
+login_button = ttk.Button(root, text="Login", command=login_clicked)
+login_button.grid(row=2, column=0, columnspan=2, pady=10)
+
+
+
+login_screen = root
+
+root.mainloop()
